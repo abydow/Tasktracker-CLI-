@@ -1,1 +1,2 @@
 A tracker ( to do list )
+    we added a base task tracker which will accept tasks serially 
