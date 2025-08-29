@@ -1,0 +1,18 @@
+# Task Tracker CLI Requirements
+# This project uses only Python standard library modules
+
+# Python Version Required
+# python>=3.6
+
+# No external dependencies required!
+# All functionality is built using Python's standard library:
+# - json (for data persistence)
+# - os (for file operations)  
+# - sys (for command line arguments)
+# - argparse (for professional CLI)
+# - datetime (for timestamps)
+
+# Optional development tools (not required for core functionality):
+# pytest>=6.0.0  # For unit testing (if you want to add tests)
+# black>=21.0.0   # For code formatting
+# flake8>=3.8.0   # For code linting
