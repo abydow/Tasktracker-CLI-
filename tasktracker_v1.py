@@ -7,6 +7,7 @@ version 1.0
 
 import json 
 import sys
+import os
 from datetime import datetime
 
 # simple Task Class to represent the data 
@@ -28,52 +29,185 @@ class Task:
             "created_at": self.created_at,
             "updated_at": self.updated_at
         }
+    @classmethod
+    def from_dict(cls, data):
+        "task creation"
+        return cls(
+            task_id=data["id"],
+            description=data["description"],
+            status=data["status"],
+            created_at=data["createdAt"],
+            updated_at=data["updatedAt"]
+
+        )
 #tasktracker
 class TaskTracker:
-    def __init__(self):
+    def __init__(self, filename="tasks.json"):
+        self.filename = filename
         self.tasks = []
-        self.next_id = 1
-    #the task adding feature here
-    def add_task(self, description):
-        task = Task(self.next_id, description)
-        self.tasks.append(task)
-        self.next_id += 1
-        return task.id
-    #list of tasks
-    def list_task(self):
+        self.load_tasks()
+
+    def load_tasks(self):
+        """Load tasks from JSON file"""
+        try:
+            if os.path.exists(self.filename):
+                with open(self.filename, 'r') as file:
+                    data = json.load(file)
+                    self.tasks = [Task.from_dict(task_data) for task_data in data]
+        except Exception as e:
+            print(f"Warning: Could not load tasks: {e}")
+            self.tasks = []
+
+    def save_tasks(self):
+        """Save tasks to JSON file"""
+        try:
+            with open(self.filename, 'w') as file:
+                json.dump([task.to_dict() for task in self.tasks], file, indent=2)
+        except Exception as e:
+            print(f"Error saving tasks: {e}")
+
+    def get_next_id(self):
+        """Get next available ID"""
         if not self.tasks:
-            print("Add some tasks!!")
-            return
-        print("\n" + "-" * 20)
-        print("\n       ->YOUR TASKS<-      ")
-        print("_" * 20)
+            return 1
+        return max(task.id for task in self.tasks) + 1
+
+    def add_task(self, description):
+        """Add a new task"""
+        task = Task(self.get_next_id(), description)
+        self.tasks.append(task)
+        self.save_tasks()
+        return task.id
+
+    def update_task(self, task_id, description):
+        """Update task description"""
         for task in self.tasks:
-            print(f"ID: {task.id}, Description: {task.description}, Status: {task.status}")
-#for bash
+            if task.id == task_id:
+                task.description = description
+                task.updated_at = datetime.now().isoformat()
+                self.save_tasks()
+                return True
+        return False
+
+    def delete_task(self, task_id):
+        """Delete a task"""
+        original_count = len(self.tasks)
+        self.tasks = [task for task in self.tasks if task.id != task_id]
+        if len(self.tasks) < original_count:
+            self.save_tasks()
+            return True
+        return False
+
+    def mark_status(self, task_id, status):
+        """Update task status"""
+        for task in self.tasks:
+            if task.id == task_id:
+                task.status = status
+                task.updated_at = datetime.now().isoformat()
+                self.save_tasks()
+                return True
+        return False
+
+    def list_tasks(self, status_filter=None):
+        """List tasks, optionally filtered by status"""
+        filtered_tasks = self.tasks
+        if status_filter:
+            filtered_tasks = [task for task in self.tasks if task.status == status_filter]
+
+        if not filtered_tasks:
+            if status_filter:
+                print(f"No tasks with status '{status_filter}'")
+            else:
+                print("No tasks found.")
+            return
+
+        print("\nYour Tasks:")
+        print("-" * 60)
+        for task in sorted(filtered_tasks, key=lambda x: x.id):
+            status_icon = {"todo": "⏳", "in-progress": "🔄", "done": "✅"}.get(task.status, "❓")
+            print(f"[{task.id}] {status_icon} {task.description} ({task.status})")
+
+# Step 5: command line interface
 def main():
     tracker = TaskTracker()
-    
+
     if len(sys.argv) < 2:
-        print("Usage: ")
-        print("  python tasktracker.py add <task_description>")
-        print("  python tasktracker.py list")
+        print("Task Tracker CLI - Version 2")
+        print("Commands:")
+        print("  add 'description'           - Add a new task")
+        print("  update <id> 'description'   - Update task description")
+        print("  delete <id>                 - Delete a task")
+        print("  mark-done <id>              - Mark task as done")
+        print("  mark-progress <id>          - Mark task as in-progress")
+        print("  list [status]               - List tasks (optionally filter by status)")
         return
 
     command = sys.argv[1]
 
-    if command == "add":
-        if len(sys.argv) < 3:
-            print("Please provide a task description.")
-            return
-        description = sys.argv[2]
-        task_id = tracker.add_task(description)
-        print(f"Task added with ID: {task_id}")
+    try:
+        if command == "add":
+            if len(sys.argv) < 3:
+                print("Please provide a task description")
+                return
+            description = sys.argv[2]
+            task_id = tracker.add_task(description)
+            print(f"✅ Task added successfully (ID: {task_id})")
 
-    elif command == "list":
-        tracker.list_task()
+        elif command == "update":
+            if len(sys.argv) < 4:
+                print("Usage: update <id> 'new description'")
+                return
+            task_id = int(sys.argv[2])
+            description = sys.argv[3]
+            if tracker.update_task(task_id, description):
+                print(f"✅ Task {task_id} updated successfully")
+            else:
+                print(f"❌ Task {task_id} not found")
 
-    else:
-        print(f"Unknown command: {command}")
+        elif command == "delete":
+            if len(sys.argv) < 3:
+                print("Usage: delete <id>")
+                return
+            task_id = int(sys.argv[2])
+            if tracker.delete_task(task_id):
+                print(f"✅ Task {task_id} deleted successfully")
+            else:
+                print(f"❌ Task {task_id} not found")
+
+        elif command == "mark-done":
+            if len(sys.argv) < 3:
+                print("Usage: mark-done <id>")
+                return
+            task_id = int(sys.argv[2])
+            if tracker.mark_status(task_id, "done"):
+                print(f"✅ Task {task_id} marked as done")
+            else:
+                print(f"❌ Task {task_id} not found")
+
+        elif command == "mark-progress":
+            if len(sys.argv) < 3:
+                print("Usage: mark-progress <id>")
+                return
+            task_id = int(sys.argv[2])
+            if tracker.mark_status(task_id, "in-progress"):
+                print(f"🔄 Task {task_id} marked as in-progress")
+            else:
+                print(f"❌ Task {task_id} not found")
+
+        elif command == "list":
+            status_filter = sys.argv[2] if len(sys.argv) > 2 else None
+            if status_filter and status_filter not in ["todo", "in-progress", "done"]:
+                print("Valid statuses: todo, in-progress, done")
+                return
+            tracker.list_tasks(status_filter)
+
+        else:
+            print(f"Unknown command: {command}")
+
+    except ValueError:
+        print("Error: Task ID must be a number")
+    except Exception as e:
+        print(f"Error: {e}")
 
 if __name__ == "__main__":
     main()
