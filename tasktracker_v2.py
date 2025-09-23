@@ -1,8 +1,3 @@
-"""
-Task Tracker CLI - Final Version (Professional Implementation)
-Complete task tracker with argparse, comprehensive error handling, and all features
-"""
-
 import json
 import os
 import sys
